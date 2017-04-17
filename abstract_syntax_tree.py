@@ -1,5 +1,6 @@
 import argparse
 
+from java_builder import Java
 from tree_format import format_tree
 
 """
@@ -25,15 +26,17 @@ from tree_format import format_tree
         the program RI<>S does the sum of the 2 number given in parameters
     
         you can execute it by using --program option followed by your program and the parameters
-        python abstract_syntax_tree.py --program RI<>S 10 5
-        15
+        > python abstract_syntax_tree.py --program RI<>S 10 5
+        Parameters of the execution  :  10 5
+        Result of the execution      :  15
         
         you can also create a file ("sum" for example) within your program, and then run it like this
-        python abstract_syntax_tree.py -f sum 10 5
-        15
+        > python abstract_syntax_tree.py -f sum 10 5
+        Parameters of the execution  :  10 5
+        Result of the execution      :  15
         
         you can print the tree structure of the program with --tree option
-        abstract_syntax_tree.py -f sum --tree
+        > abstract_syntax_tree.py -f sum --tree
         R
         ├── I
         └── <
@@ -41,14 +44,24 @@ from tree_format import format_tree
                 └── S
                 
         you can do both by calling --tree option and giving program parameters
-        abstract_syntax_tree.py -f program/add.rl --tree 10 5
+        > abstract_syntax_tree.py -f program/add.rl --tree 10 5
         R
         ├── I
         └── <
             └── >
                 └── S
-        15
-  
+        Parameters of the execution  :  10 5
+        Result of the execution      :  15
+        
+        you can create a java version of the program with the --java option
+        > abstract_syntax_tree.py -program RI<>S --java
+        
+        and force execution on the java version
+        > abstract_syntax_tree.py -program RI<>S --java 10 5
+        Parameters of the execution  :  10 5
+        Result of the execution      :  15
+        
+        
 """
 
 
@@ -57,6 +70,7 @@ class Function(object):
     arity = 0
     depth = 0
     name = ""
+    java_class = ""
     children = []
 
     def __init__(self, program):
@@ -66,6 +80,9 @@ class Function(object):
         return self.name
 
     __repr__ = __str__
+
+    def to_java(self):
+        return f"new {self.java_class}({', '.join(child.to_java() for child in self.children)})"
 
 
 class Language(dict):
@@ -77,6 +94,7 @@ class Language(dict):
     def add_function(self, function_name):
         def metaclass(name, bases, attributes):
             attributes["name"] = function_name
+            attributes["java_class"] = name
             self[function_name] = type(name, (Function,) + bases, attributes)
             return self[function_name]
         return metaclass
@@ -206,6 +224,8 @@ class Commandline(argparse.ArgumentParser):
         program_handler.add_argument("-p", "--program", nargs=1, type=str,
                                      help="The content of the program", metavar="program", dest="program")
         self.add_argument("params", type=int, metavar="vector", nargs="*", help="Parameters of the program")
+        output = self.add_mutually_exclusive_group()
+        output.add_argument("--java", action="store_true", help="Create a java version of the program to execute it")
         self.add_argument('--tree', action='store_true', help='Print a representation of the program tree')
 
 
@@ -237,9 +257,13 @@ def main():
     tree = Tree(program)
     if commandline.tree:
         print(format_tree(tree.node, format_node=lambda node: str(node), get_children=lambda node: node.children))
+    execution = tree.node
+    if commandline.java:
+        execution = Java(tree.node)
     if commandline.params:
-        result = tree.node(*commandline.params)
-        print(*result)
+        result = execution(*commandline.params)
+        print("Parameters of the execution  : ", *commandline.params)
+        print("Result of the execution      : ", *result)
 
 
 if __name__ == '__main__':
