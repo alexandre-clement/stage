@@ -1,6 +1,4 @@
-import argparse
 
-from java_builder import Java
 from tree_format import format_tree
 
 """
@@ -70,19 +68,15 @@ class Function(object):
     arity = 0
     depth = 0
     name = ""
-    java_class = ""
     children = []
 
     def __init__(self, program):
         pass
 
     def __str__(self):
-        return self.name
+        return f"{self.name}"
 
     __repr__ = __str__
-
-    def to_java(self):
-        return f"new {self.java_class}({', '.join(child.to_java() for child in self.children)})"
 
 
 class Language(dict):
@@ -94,7 +88,6 @@ class Language(dict):
     def add_function(self, function_name):
         def metaclass(name, bases, attributes):
             attributes["name"] = function_name
-            attributes["java_class"] = name
             self[function_name] = type(name, (Function,) + bases, attributes)
             return self[function_name]
         return metaclass
@@ -156,7 +149,7 @@ class Right(metaclass=language.add_function('>')):
         return self.ast(*x[:-1])
 
 
-class Composition(metaclass=language.add_function('O')):
+class Composition(metaclass=language.add_function('o')):
     """ The function Composition O : f = g -> h1, h2, ..., hn -> x -> g(h1(x), h2(x), ..., hn(x))"""
 
     def __init__(self, program):
@@ -197,8 +190,9 @@ class Tree(object):
     """ Build the tree structure of the program """
 
     def __init__(self, program):
-        self.node = next_function(program)
-        residue = tuple(program)
+        self.program = iter(program)
+        self.node = next_function(self.program)
+        residue = tuple(self.program)
         if len(residue) != 0:
             raise NotEmptyProgramError(residue)
 
@@ -210,23 +204,7 @@ class NotEmptyProgramError(Exception):
         self.program = program
 
     def __str__(self):
-        return 'Program should be empty : {program}'.format(program=str(self.program))
-
-
-class Commandline(argparse.ArgumentParser):
-    """ Commandline parser """
-
-    def __init__(self):
-        super(Commandline, self).__init__(description="Build tree from a recursive language program")
-        program_handler = self.add_mutually_exclusive_group(required=True)
-        program_handler.add_argument("-f", "--filename", nargs=1, type=str,
-                                     help="The filename of the program", metavar="filename", dest="filename")
-        program_handler.add_argument("-p", "--program", nargs=1, type=str,
-                                     help="The content of the program", metavar="program", dest="program")
-        self.add_argument("params", type=int, metavar="vector", nargs="*", help="Parameters of the program")
-        output = self.add_mutually_exclusive_group()
-        output.add_argument("--java", action="store_true", help="Create a java version of the program to execute it")
-        self.add_argument('--tree', action='store_true', help='Print a representation of the program tree')
+        return f'Program should be empty : {self.program}'
 
 
 def next_function(program):
@@ -245,26 +223,12 @@ def parse(text):
     :param text: string version of the program
     :return: a generator with the Functions representations of the text program
     """
-    return (language[char] for char in text if char in language)
+    return list(language[char] for char in text if char in language)
 
 
-def main():
-    commandline = Commandline().parse_args()
-    if commandline.filename:
-        program = parse(open(commandline.filename[0]).read())
-    else:
-        program = parse(commandline.program[0])
-    tree = Tree(program)
-    if commandline.tree:
-        print(format_tree(tree.node, format_node=lambda node: str(node), get_children=lambda node: node.children))
-    execution = tree.node
-    if commandline.java:
-        execution = Java(tree.node)
-    if commandline.params:
-        result = execution(*commandline.params)
-        print("Parameters of the execution  : ", *commandline.params)
-        print("Result of the execution      : ", *result)
+def display_tree(tree):
+    return format_tree(tree.node, format_node=lambda node: str(node), get_children=lambda node: node.children)
 
 
-if __name__ == '__main__':
-    main()
+def display_result(tree, *args):
+    return f"f({', '.join(map(str, args))})={','.join(map(str, tree.node(*args)))}"
