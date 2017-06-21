@@ -52,7 +52,7 @@ def main():
         print(display_tree(tree))
 
     if commandline.hashcode:
-        print(HashFunction(pairing=pairing_exp2_inverse).value(iter(program)))
+        print(HashFunction().value(iter(program)))
 
     if commandline.input:
         print(display_result(tree, *commandline.input))

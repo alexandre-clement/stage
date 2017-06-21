@@ -25,13 +25,15 @@ def pairing_exp2(n):
     x = n
     while not x & 1:
         x = x // 2
-    v = (x - 1) // 2
+    v = (x + 1) // 2
     y = n // x
     return int(log(y, 2)), v
 
 
 def pairing_exp2_inverse(u, v):
-    return 2 ** u * (2 * v + 1)
+    if not u and not v:
+        return 0
+    return 2 ** u * (2 * v - 1)
 
 
 class Generator:
@@ -138,3 +140,36 @@ def generate(func, iterable):
                 break
         else:
             return program
+
+
+def fibonacci(n):
+    a = 0
+    b = 1
+    for i in range(n):
+        b = a + b
+        a = b - a
+    return b
+
+def main():
+    from math import factorial
+    result = [fibonacci(x) for x in range(10)]
+    generator = Generator(pairing=pairing_exp2)
+    hashfunction = HashFunction(pairing=pairing_exp2_inverse)
+    for i in range(10000000, 100000000, 4):
+        for j in range(0, 4):
+            program = generator.create_program(1, i+j)
+            if i+j != hashfunction.value(iter(program))[1]:
+                print(i+j, hashfunction.value(iter(program)))
+            tree = Tree(iter(program))
+            for k in range(10):
+                if tree.node(k,)[0] != result[k]:
+                    if k > 4:
+                        print(i+j, k)
+                    break
+            else:
+                print(i+j)
+                exit(0)
+
+
+if __name__ == '__main__':
+    main()
