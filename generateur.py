@@ -16,51 +16,54 @@ def composition(n, arity, size):
 
 
 def add_compound(n, arity, size):
-    return [product(*[generator(arity, l) for l in c]) for c in composition(n, arity, size)]
+    for c in composition(n, arity, size):
+        for k in product(*[generator(arity, l) for l in c]):
+            yield [i for j in k for i in j]
 
 
 def add_composition(arity, size):
-    result = []
     for t in range(1, size - 1):
         for a in range(size - t - 1, size):
             for g in generator(a, t):
                 for e in add_compound(a, arity, size - t - 1):
-                    for f in e:
-                        result.append([Composition] + g + [w for j in f for w in j])
-    return result
+                    yield [Composition] + g + e
 
 
 def add_left_right(arity, size):
-    result = []
     for f in generator(arity - 1, size - 1):
-        result.append([Left] + f)
-        result.append([Right] + f)
-    return result
+        yield [Left] + f
+        yield [Right] + f
 
 
 def add_recursion(arity, size):
-    result = []
     for i in range(1, size - 1):
         for p in generator(arity - 1, i):
             for g in generator(arity + 1, size - i - 1):
-                result.append([Recursion] + p + g)
-    return result
+                yield [Recursion] + p + g
 
 
 def generator(arity, size):
     if (arity, size) in atom:
-        return atom[(arity, size)]
-    if arity == 0:
-        return add_composition(arity, size)
-    return add_composition(arity, size) + add_left_right(arity, size) + add_recursion(arity, size)
+        for i in atom[(arity, size)]:
+            yield i
+    elif arity == 0:
+        for i in add_composition(arity, size):
+            yield i
+    else:
+        for i in add_composition(arity, size):
+            yield i
+        for i in add_left_right(arity, size):
+            yield i
+        for i in add_recursion(arity, size):
+            yield i
 
 
 def main():
-    n = 20
-    for i in generator(0, n):
-        if n != len(i):
-            print(display_tree(Tree(iter(i))))
-        display_tree(Tree(iter(i)))
+    n = 12
+    for i in generator(1, n):
+        print(display_tree(Tree(iter(i))))
+        if len(i) != n:
+            exit(1)
 
 
 if __name__ == '__main__':
