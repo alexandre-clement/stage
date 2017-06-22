@@ -6,8 +6,17 @@ import sys
 sys.setrecursionlimit(10000)
 
 
+def newton(n):
+    x = n
+    y = (x + 1) // 2
+    while y < x:
+        x = y
+        y = (x + n // x) // 2
+    return x
+
+
 def cantor(value):
-    n = int(sqrt(2 * value))
+    n = newton(2 * value)
     if n * (n + 1) // 2 > value:
         n -= 1
     p = n * (n + 1) // 2
@@ -17,6 +26,26 @@ def cantor(value):
 
 def cantor_inverse(x, y):
     return ((x + y) * (x + y) + 3 * x + y) // 2
+
+
+def cantor_n(value, n):
+    if n == 1:
+        return value,
+    if n == 2:
+        return cantor(value)
+    mid = n // 2
+    i, j = cantor(value)
+    return cantor_n(i, mid) + cantor_n(j, n-mid)
+
+
+def cantor_inverse_n(*args):
+    n = len(args)
+    if n == 1:
+        return args[0]
+    if n == 2:
+        return cantor_inverse(*args)
+    mid = n // 2
+    return cantor_inverse(cantor_inverse_n(*args[:mid]), cantor_inverse_n(*args[mid:]))
 
 
 def pairing_exp2(n):
@@ -39,8 +68,7 @@ def pairing_exp2_inverse(u, v):
 class Generator:
     atom = {(0, 0): Zero, (1, 0): Identity, (1, 1): Successor}
 
-    def __init__(self, pairing=cantor):
-        self.pairing = pairing
+    def __init__(self):
         self.sub_function = [self._add_right, self._add_left, self._add_recursion, self._add_composition]
 
     def create_program(self, arity, fid):
@@ -60,18 +88,13 @@ class Generator:
         return [Right] + self.create_program(arity - 1, fid)
 
     def _add_recursion(self, arity, fid):
-        i, j = self.pairing(fid)
+        i, j = cantor(fid)
         return [Recursion] + self.create_program(arity - 1, i) + self.create_program(arity + 1, j)
 
     def _add_composition(self, arity, fid):
-        b, x = self.pairing(fid)
+        b, x = pairing_exp2(fid)
         b += 1
-        i, arg = self.pairing(x)
-        a = []
-        for j in range(b - 1):
-            p, arg = self.pairing(arg)
-            a.append(p)
-        a.append(arg)
+        i, *a = cantor_n(x, b+1)
         result = [Composition] + self.create_program(b, i)
         for i in range(b):
             result += self.create_program(arity, a[i])
@@ -81,8 +104,7 @@ class Generator:
 class HashFunction:
     atom = {Zero: (0, 0), Identity: (1, 0), Successor: (1, 1)}
 
-    def __init__(self, pairing=cantor_inverse):
-        self.pairing = pairing
+    def __init__(self):
         self.func = {Left: self._left_value, Right: self._right_value,
                      Recursion: self._recursion_value, Composition: self._composition_value}
 
@@ -103,7 +125,7 @@ class HashFunction:
     def _recursion_value(self, program):
         zero_arity, zero_fid = self.value(program)
         recursion_arity, recursion_fid = self.value(program)
-        return zero_arity + 1, self.pairing(zero_fid, recursion_fid) * 4 + 2
+        return zero_arity + 1, cantor_inverse(zero_fid, recursion_fid) * 4 + 2
 
     def _composition_value(self, program):
         b, i = self.value(program)
@@ -113,9 +135,8 @@ class HashFunction:
         for j in range(b):
             arity, fid = self.value(program)
             a.append(fid)
-        for j in range(len(a) - 2, -1, -1):
-            fid = self.pairing(a[j], fid)
-        fid = self.pairing(b - 1, self.pairing(i, fid))
+        fid = cantor_inverse_n(i, *a)
+        fid = pairing_exp2_inverse(b - 1, fid)
         if arity == 0:
             return arity, fid + 1
         return arity, fid * 4 + 3
@@ -130,7 +151,7 @@ def generate(func, iterable):
             yield k
             k += 3
 
-    generator = Generator(pairing=pairing_exp2)
+    generator = Generator()
     target = tuple(func(j) for j in iterable)
     for i in generation_range():
         program = generator.create_program(1, i)
@@ -150,12 +171,13 @@ def fibonacci(n):
         a = b - a
     return b
 
+
 def main():
     from math import factorial
-    result = [fibonacci(x) for x in range(10)]
-    generator = Generator(pairing=pairing_exp2)
-    hashfunction = HashFunction(pairing=pairing_exp2_inverse)
-    for i in range(10000000, 100000000, 4):
+    result = [factorial(x) for x in range(10)]
+    generator = Generator()
+    hashfunction = HashFunction()
+    for i in range(0, 100000000, 4):
         for j in range(0, 4):
             program = generator.create_program(1, i+j)
             if i+j != hashfunction.value(iter(program))[1]:
