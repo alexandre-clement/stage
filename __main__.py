@@ -1,8 +1,7 @@
 import argparse
-from math import factorial
 
 from abstract_syntax_tree import parse, Tree, display_tree, display_result
-from generator import HashFunction, Generator, generate, pairing_exp2, pairing_exp2_inverse
+from generator import HashFunction, Generator, generate
 
 
 class Commandline(argparse.ArgumentParser):
@@ -25,15 +24,6 @@ class Commandline(argparse.ArgumentParser):
         self.add_argument("--hashcode", action='store_true', help='Print the hashcode of the program')
 
 
-def fibonacci(n):
-    a = 0
-    b = 1
-    for i in range(n):
-        b = a + b
-        a = b - a
-    return b
-
-
 def main():
     commandline = Commandline().parse_args()
 
@@ -42,7 +32,7 @@ def main():
     elif commandline.program:
         program = parse(commandline.program[0])
     elif commandline.create:
-        program = Generator(pairing=pairing_exp2).create_program(1, commandline.create[0])
+        program = Generator().create_program(1, commandline.create[0])
     else:
         program = generate(*map(eval, commandline.generate))
 

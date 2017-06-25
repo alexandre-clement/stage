@@ -1,4 +1,5 @@
 from itertools import product
+from time import time
 
 from abstract_syntax_tree import Zero, Identity, Successor, Left, Right, Composition, Recursion, Tree, display_tree
 
@@ -24,7 +25,9 @@ def add_compound(n, arity, size):
 def add_composition(arity, size):
     for t in range(1, size - 1):
         for a in range(size - t - 1, size):
-            for g in generator(a, t):
+            for g in generator(a, t, False):
+                if g[0] == Identity:
+                    continue
                 for e in add_compound(a, arity, size - t - 1):
                     yield [Composition] + g + e
 
@@ -32,7 +35,8 @@ def add_composition(arity, size):
 def add_left_right(arity, size):
     for f in generator(arity - 1, size - 1):
         yield [Left] + f
-        yield [Right] + f
+        if f[0] != Left:
+            yield [Right] + f
 
 
 def add_recursion(arity, size):
@@ -42,7 +46,7 @@ def add_recursion(arity, size):
                 yield [Recursion] + p + g
 
 
-def generator(arity, size):
+def generator(arity, size, left_right=True):
     if (arity, size) in atom:
         for i in atom[(arity, size)]:
             yield i
@@ -52,19 +56,24 @@ def generator(arity, size):
     else:
         for i in add_composition(arity, size):
             yield i
-        for i in add_left_right(arity, size):
-            yield i
+        if left_right:
+            for i in add_left_right(arity, size):
+                yield i
         for i in add_recursion(arity, size):
             yield i
 
 
 def main():
-    n = 12
-    for i in generator(1, n):
-        print(display_tree(Tree(iter(i))))
-        if len(i) != n:
-            exit(1)
+    for i in generator(1, 6):
+        print(display_tree(Tree(i)))
+
+
+def main1():
+    t0 = time()
+    for i in range(20, 21):
+        print(i, len(list(generator(1, i, False))))
+    print(time() - t0)
 
 
 if __name__ == '__main__':
-    main()
+    main1()
