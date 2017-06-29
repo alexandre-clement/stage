@@ -171,3 +171,7 @@ def display_tree(tree):
 
 def display_result(tree, *args):
     return f"f({', '.join(map(str, args))})={','.join(map(str, tree.node(*args)))}"
+
+
+if __name__ == '__main__':
+    Tree(parse("oRI<"))

@@ -205,11 +205,15 @@ class NoLeftOrRightGenerator(Generator):
     def __init__(self, arity: int = 0, size: int = 0):
         super().__init__(arity, size)
 
-    def left(self):
-        yield from iter(())
-
-    def right(self):
-        yield from iter(())
+    def __iter__(self):
+        if self.size == 1:
+            yield from self._atom()
+        elif self.size > 1:
+            if self.arity == 0:
+                yield from self.zero_arity()
+            else:
+                yield from self.composition()
+                yield from self.recursion()
 
 
 class ProgramGenerator(NoLeftOrRightGenerator):
@@ -299,7 +303,7 @@ def test_interpreter():
     print(7 + 8, addition(7, 8))
     print(addition)
 
-    multiplication = Function.build(Language.parse("R<Z<RI<>S"))
+    multiplication = Function.build(Language.parse("R<Z<RI<>SIS"))
     print(7 * 8, multiplication(7, 8))
     print(multiplication)
 
@@ -323,14 +327,14 @@ def check(program, lst):
 
 
 def main():
+    print(Recursion(Zero(), Right(Identity()))(10))
+    """
     t0 = time()
-    lst = [0 for _ in range(10)]
-    for i in range(0, 12):
-        print(i)
+    for i in range(8, 9):
         for program in ProgramGenerator(1, i):
-            check(program, lst)
+            print(program)
     print(time() - t0)
-
+    """
 
 if __name__ == '__main__':
     main()
