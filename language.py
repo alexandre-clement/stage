@@ -10,10 +10,8 @@ class Language(dict):
         self[token] = type(name, args, kwargs)
         return self[token]
 
-    @staticmethod
-    def parse(text):
-        program = (Function.language[char] for char in text if char in Function.language)
-        return program
+    def parse(self, text):
+        return (self[char] for char in text if char in self)
 
 
 class Function(object):
@@ -327,7 +325,7 @@ def check(program, lst):
 
 
 def main():
-    print(Recursion(Zero(), Right(Identity()))(10))
+    print(Function.build(Language.parse("ooRI<>SIIRZRI<>S")))
     """
     t0 = time()
     for i in range(8, 9):

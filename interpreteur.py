@@ -1,3 +1,5 @@
+from tree_format import format_tree
+
 UNKNOWN_RESULT = -1
 
 
@@ -7,10 +9,8 @@ class Language(dict):
         self[token] = type(name, args, kwargs)
         return self[token]
 
-    @staticmethod
-    def parse(text):
-        program = (Function.language[char] for char in text if char in Function.language)
-        return program
+    def parse(self, text):
+        return (self[char] for char in text if char in self)
 
 
 class Expression:
@@ -19,10 +19,14 @@ class Expression:
         self.args = args
 
     def __call__(self) -> int:
-        if self.args != ():
+        try:
             self.what = self.what(*self.args)
-            self.args = ()
+        except TypeError:
+            pass
         return self.what
+
+    def __str__(self):
+        return f"{self.what}({', '.join(map(str, self.args))})"
 
 
 class Function(Expression):
@@ -30,7 +34,7 @@ class Function(Expression):
     language = Language()
 
     def __init__(self, *children, what=UNKNOWN_RESULT, args=(), arity=0, depth=0):
-        super().__init__(what, args)
+        super().__init__(what, *args)
         self.arity = arity
         self.depth = depth
         self.children = children
@@ -38,8 +42,18 @@ class Function(Expression):
     def __call__(self, *expression: Expression) -> int:
         return Expression.__call__(self)
 
+    def __str__(self):
+        return format_tree(self, format_node=lambda node: node.token, get_children=lambda node: node.children)
 
-class Zero(Function):
+    def __repr__(self):
+        return f"{self.token}{''.join(map(repr, self.children))}"
+
+    @staticmethod
+    def build(program):
+        return next(program).build(program)
+
+
+class Zero(Function, metaclass=Function.language):
     token = 'Z'
 
     def __init__(self):
@@ -48,8 +62,12 @@ class Zero(Function):
     def __call__(self):
         return Function.__call__(self)
 
+    @staticmethod
+    def build(program, building=Function.build) -> Function:
+        return Zero()
 
-class Identity(Function):
+
+class Identity(Function, metaclass=Function.language):
     token = 'I'
 
     def __init__(self):
@@ -58,8 +76,12 @@ class Identity(Function):
     def __call__(self, expression: Expression):
         return expression()
 
+    @staticmethod
+    def build(program, building=Function.build) -> Function:
+        return Identity()
 
-class Successor(Function):
+
+class Successor(Function, metaclass=Function.language):
     token = 'S'
 
     def __init__(self):
@@ -68,8 +90,12 @@ class Successor(Function):
     def __call__(self, expression: Expression):
         return expression() + 1
 
+    @staticmethod
+    def build(program, building=Function.build) -> Function:
+        return Successor()
 
-class Left(Function):
+
+class Left(Function, metaclass=Function.language):
     token = '<'
 
     def __init__(self, inner_function):
@@ -79,8 +105,12 @@ class Left(Function):
     def __call__(self, *expression: Expression):
         return self.inner_function(*expression[1:])
 
+    @staticmethod
+    def build(program, building=Function.build) -> Function:
+        return Left(building(program))
 
-class Right(Function):
+
+class Right(Function, metaclass=Function.language):
     token = '>'
 
     def __init__(self, inner_function):
@@ -90,8 +120,12 @@ class Right(Function):
     def __call__(self, *expression: Expression):
         return self.inner_function(*expression[:-1])
 
+    @staticmethod
+    def build(program, building=Function.build) -> Function:
+        return Right(building(program))
 
-class Composition(Function):
+
+class Composition(Function, metaclass=Function.language):
     token = 'o'
 
     def __init__(self, main_function, *compound):
@@ -104,8 +138,14 @@ class Composition(Function):
     def __call__(self, *expression: Expression):
         return self.main_function(*[Expression(comp, *expression) for comp in self.compound])
 
+    @staticmethod
+    def build(program, building=Function.build) -> Function:
+        f = building(program)
+        g = [building(program) for _ in range(f.arity)]
+        return Composition(f, *g)
 
-class Recursion(Function):
+
+class Recursion(Function, metaclass=Function.language):
     token = 'R'
 
     def __init__(self, zero, recursive):
@@ -126,13 +166,32 @@ class Recursion(Function):
         self.n -= 1
         return self.recursive(Expression(self.n), self._recursive_call, *self.expression)
 
+    @staticmethod
+    def build(program, building=Function.build) -> Function:
+        return Recursion(building(program), building(program))
+
 
 class ArityException(Exception):
     pass
 
 
+class InvalidProgram(Exception):
+    pass
+
+
+def build(text):
+    generator = Function.language.parse(text)
+    program = Function.build(generator)
+    try:
+        next(generator)
+    except StopIteration:
+        return program
+    raise InvalidProgram()
+
+
 def main():
-    print(Composition(Left(Right(Identity())), Identity(), Successor(), Successor())(Expression(10)))
+    program = build(open("program/facto.rl").read())
+    print(program(Expression(7)))
 
 
 if __name__ == '__main__':
