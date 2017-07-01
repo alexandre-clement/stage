@@ -202,7 +202,7 @@ class Composition(Function):
 
 class Recursion(Function):
     def __init__(self, zero, recursive):
-        super().__init__(zero.arity + 1, max(zero.arity, recursive.arity) + 1, zero, recursive)
+        super().__init__(zero.arity + 1, max(zero.depth, recursive.depth + 1), zero, recursive)
         self.zero = zero
         self.recursive = recursive
 
@@ -262,14 +262,16 @@ def build(language, text):
 
 
 def main():
-    program = build(create_language(), 'oRI<>SII')
-    print(program)
+    program = build(create_language(), 'R<Z<RI<>S')
     call_stack = list()
-    param = (Expression(7),)
+    param = (Expression(12), Expression(10))
     program(call_stack, *param)
+    i = 0
     while len(call_stack):
+        i += 1
         call = call_stack.pop()
         call()
+    print(i)
     print(program.result)
 
 

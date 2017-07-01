@@ -174,7 +174,7 @@ def fibonacci(n):
 
 def main():
     from math import factorial
-    result = [factorial(x) for x in range(10)]
+    result = [fibonacci(x) for x in range(10)]
     generator = Generator()
     hashfunction = HashFunction()
     for i in range(0, 100000000, 4):

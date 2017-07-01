@@ -1,6 +1,8 @@
 from itertools import product
+from math import factorial
 from time import time
 
+from generator import fibonacci
 from tree_format import format_tree
 
 
@@ -313,7 +315,7 @@ def test_interpreter():
     test = Function.build(Language.parse("RI<R<Z<RI<>S"))
     for i in range(4):
         for j in range(10):
-            print(j**(i+1), test(i, j))
+            print(j ** (i + 1), test(i, j))
     print(test)
 
 
@@ -322,17 +324,20 @@ def check(program, lst):
         if program(i) != lst[i]:
             return
     print(program)
+    print(repr((program)))
 
 
 def main():
-    print(Function.build(Language.parse("ooRI<>SIIRZRI<>S")))
-    """
+    # print(Function.build(Function.language.parse(open("program/facto.rl").read()))(8))
+    result = [factorial(x) - 1 for x in range(10)]
+    print(result)
     t0 = time()
-    for i in range(8, 9):
+    for i in range(0, 15):
+        print(i)
         for program in ProgramGenerator(1, i):
-            print(program)
+            check(program, result)
     print(time() - t0)
-    """
+
 
 if __name__ == '__main__':
     main()
