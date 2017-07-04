@@ -1,11 +1,43 @@
 def next_function(program):
-    """
-    Consume a token of the program to create the associated Function instance
-    The function instance needs the program in constructor to build its children
-    :param program: the current program generator of Function
-    :return: the next function instance of the tree
-    """
-    return next(program).build(program)
+    try:
+        return next(program).build(program)
+    except StopIteration:
+        raise InvalidProgram()
+
+
+class Expression:
+    def __init__(self, what, *params):
+        self.what = what
+        self.params = params
+        self.closed = isinstance(what, int)
+
+    def __call__(self):
+        return self.result
+
+    @property
+    def result(self):
+        if self.closed:
+            return self.what
+        return self.what(*self.params)
+
+    def successor(self):
+        if self.closed:
+            return Expression(self.what + 1)
+        return Expression(Successor, self)
+
+    def predecessor(self):
+        if self.closed:
+            return Expression(self.what - 1)
+        return self.result.predecessor()
+
+    def __str__(self):
+        if self.closed:
+            return str(self.what)
+        return f"{self.what}({', '.join(map(str, self.params))})"
+
+
+class InvalidProgram(Exception):
+    pass
 
 
 class Interpreter:
@@ -13,8 +45,13 @@ class Interpreter:
         self.language = language
 
     def compile(self, code):
-        program = self.parse(code)
-        return Program(next_function(program))
+        instructions = self.parse(code)
+        program = Program(next_function(instructions))
+        try:
+            next(instructions)
+        except StopIteration:
+            return program
+        raise InvalidProgram()
 
     def parse(self, code):
         return (self.language[char] for char in code if char in self.language)
@@ -24,44 +61,17 @@ class Program:
     def __init__(self, main_function):
         self.main_function = main_function
 
-    def execute(self, *args):
-        step = 0
-        result = self.main_function(*[Expression(arg, master=self) for arg in args])
+    def execute(self, *args, step=-1):
+        program = self.main_function(*[Expression(arg) for arg in args])
+        step_counter = 0
         try:
-            while True:
-                step += 1
-                result = result()
-
-        except TypeError as e:
-            return step, result
-            # raise e
-            # finally:
-            # return step, result
-
-
-class Expression:
-    def __init__(self, what, *params, master=None):
-        self.master = master
-        self.what = what
-        self.params = params
-        self.closed = not callable(what)
-
-    def __call__(self, *args, **kwargs):
-        return self.result
-
-    @property
-    def result(self):
-        if not self.closed:
-            self.what = self.what(*self.params)
-            self.closed = self.what.closed
-        return self.what
-
-    def __str__(self):
-        if not self.closed:
-            return f"{self.master}({', '.join(map(str, self.params))})"
-        return f"Expression({self.what}, master={self.master})"
-
-    __repr__ = __str__
+            while step == -1 or step > step_counter:
+                step_counter += 1
+                program = program()
+        except TypeError:
+            pass
+        finally:
+            return step_counter, program
 
 
 class ArityException(Exception):
@@ -75,13 +85,14 @@ class Function:
         self.children = children
 
     def __call__(self, *expression):
-        if len(expression) != self.arity:
+        if self.arity != len(expression):
             raise ArityException()
 
     def __str__(self):
         return self.__class__.__name__
 
-    __repr__ = __str__
+    def __repr__(self):
+        return f"{self.__class__.__name__[0]}({', '.join(map(repr, self.children))})"
 
     @classmethod
     def build(cls, program):
@@ -91,7 +102,7 @@ class Function:
 class Zero(Function):
     def __call__(self, *expression):
         super().__call__(*expression)
-        return Expression(0, master=self)
+        return Expression(0)
 
 
 class Identity(Function):
@@ -100,9 +111,7 @@ class Identity(Function):
 
     def __call__(self, *expression):
         super().__call__(*expression)
-        if expression[0].closed:
-            return Expression(expression[0].result, master=self)
-        return Expression(self, expression[0].result, master=self)
+        return expression[0]
 
 
 class Successor(Function):
@@ -112,8 +121,8 @@ class Successor(Function):
     def __call__(self, *expression):
         super().__call__(*expression)
         if expression[0].closed:
-            return Expression(expression[0].result + 1, master=self)
-        return Expression(self, expression[0].result, master=self)
+            return expression[0].successor()
+        return Expression(self, expression[0].result)
 
 
 class Projection(Function):
@@ -128,13 +137,13 @@ class Projection(Function):
 class Left(Projection):
     def __call__(self, *expression):
         super().__call__(*expression)
-        return Expression(self.children[0], *expression[1:], master=self)
+        return Expression(self.children[0], *expression[1:])
 
 
 class Right(Projection):
     def __call__(self, *expression):
         super().__call__(*expression)
-        return Expression(self.children[0], *expression[:-1], master=self)
+        return Expression(self.children[0], *expression[:-1])
 
 
 class Composition(Function):
@@ -145,8 +154,7 @@ class Composition(Function):
 
     def __call__(self, *expression):
         super().__call__(*expression)
-        return Expression(self.children[0],
-                          *[Expression(child, *expression, master=self) for child in self.children[1:]], master=self)
+        return Expression(self.children[0], *[Expression(child, *expression) for child in self.children[1:]])
 
     @classmethod
     def build(cls, program):
@@ -162,13 +170,13 @@ class Recursion(Function):
 
     def __call__(self, *expression):
         super().__call__(*expression)
-        if not expression[0].closed:
-            return Expression(self, expression[0].result, *expression[1:], master='compteur')
-        if not expression[0].result:
-            return Expression(self.children[0], *expression[1:], master='f')
-        counter = Expression(expression[0].result - 1, master='compteur - 1')
-        return Expression(self.children[1], counter, Expression(self, counter, *expression[1:], master='recurtion'),
-                          *expression[1:], master='g')
+        if expression[0].closed:
+            if expression[0].result:
+                return Expression(self.children[1], expression[0].predecessor(),
+                                  Expression(self, expression[0].predecessor(), *expression[1:]), *expression[1:])
+            else:
+                return Expression(self.children[0], *expression[1:])
+        return Expression(self, expression[0].result, *expression[1:])
 
     @classmethod
     def build(cls, program):
@@ -178,16 +186,7 @@ class Recursion(Function):
 def main():
     language = {'Z': Zero, 'I': Identity, 'S': Successor, '<': Left, '>': Right, 'o': Composition, 'R': Recursion}
     interpreter = Interpreter(**language)
-    step, result = interpreter.compile("""R
-├── Z
-└── R
-    ├── I
-    └── <
-        └── R
-            ├── I
-            └── <
-                └── >
-                    └── S""").execute(3)
+    step, result = interpreter.compile("oR<Z<RI<>SII").execute(20)
     print(step, result)
 
 

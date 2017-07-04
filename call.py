@@ -262,9 +262,9 @@ def build(language, text):
 
 
 def main():
-    program = build(create_language(), 'R<Z<RI<>S')
+    program = build(create_language(), 'oR<Z<RI<>SII')
     call_stack = list()
-    param = (Expression(12), Expression(10))
+    param = (Expression(20),)
     program(call_stack, *param)
     i = 0
     while len(call_stack):
