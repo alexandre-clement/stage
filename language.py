@@ -333,9 +333,7 @@ def main():
     print(result)
     t0 = time()
     for i in range(0, 15):
-        print(i)
-        for program in ProgramGenerator(1, i):
-            check(program, result)
+        print(i, len(ProgramGenerator(1, i)))
     print(time() - t0)
 
 

@@ -12,18 +12,19 @@ class Expression:
         self.closed = isinstance(what, int)
 
     def __call__(self):
-        return self.result
+        if self.closed:
+            return self
+        self.copy(self.what(*self.params))
+        return self
+
+    def copy(self, other):
+        self.what = other.what
+        self.params = other.params
+        self.closed = other.closed
 
     @property
     def result(self):
-        if self.closed:
-            return self.what
-        return self.what(*self.params)
-
-    def successor(self):
-        if self.closed:
-            return Expression(self.what + 1)
-        return Expression(Successor, self)
+        return self().what
 
     def predecessor(self):
         if self.closed:
@@ -33,7 +34,9 @@ class Expression:
     def __str__(self):
         if self.closed:
             return str(self.what)
-        return f"{self.what}({', '.join(map(str, self.params))})"
+        return f"{self.what}({', '.join(map(str, self.params[1:]))})"
+
+    __repr__ = __str__
 
 
 class InvalidProgram(Exception):
@@ -62,18 +65,22 @@ class Program:
         self.main_function = main_function
 
     def execute(self, *args, step=-1, display=()):
-        program = self.main_function(*[Expression(arg) for arg in args])
+        stack = []
+        stack.append(self.main_function(stack, *[Expression(arg) for arg in args]))
         step_counter = 0
-        print(0, f"{self.main_function}({', '.join(map(str, args))})")
-        try:
-            while step == -1 or step > step_counter:
-                step_counter += 1
-                if step_counter in display:
-                    print(step_counter, program)
-                program = program()
-        except TypeError:
-            pass
-        return step_counter - 1, program
+        if step_counter in display:
+            print(step_counter, f"{self.main_function}({', '.join(map(str, args))})")
+        peek = -1
+        while stack and step == -1 or step > step_counter:
+            step_counter += 1
+            peek = stack[-1]
+            if step_counter in display:
+                print(step_counter, stack)
+            if not peek.closed:
+                peek.copy(peek())
+            else:
+                stack.pop()
+        return step_counter, peek
 
 
 class ArityException(Exception):
@@ -102,7 +109,7 @@ class Function:
 
 
 class Zero(Function):
-    def __call__(self, *expression):
+    def __call__(self, stack, *expression):
         super().__call__(*expression)
         return Expression(0)
 
@@ -111,7 +118,7 @@ class Identity(Function):
     def __init__(self):
         super().__init__(arity=1)
 
-    def __call__(self, *expression):
+    def __call__(self, stack, *expression):
         super().__call__(*expression)
         return expression[0]
 
@@ -120,11 +127,12 @@ class Successor(Function):
     def __init__(self):
         super().__init__(arity=1)
 
-    def __call__(self, *expression):
+    def __call__(self, stack, *expression):
         super().__call__(*expression)
         if expression[0].closed:
-            return expression[0].successor()
-        return Expression(self, expression[0].result)
+            return Expression(expression[0].result + 1)
+        stack.append(expression[0])
+        return Expression(self, stack, *expression)
 
 
 class Projection(Function):
@@ -137,15 +145,15 @@ class Projection(Function):
 
 
 class Left(Projection):
-    def __call__(self, *expression):
+    def __call__(self, stack, *expression):
         super().__call__(*expression)
-        return Expression(self.children[0], *expression[1:])
+        return Expression(self.children[0], stack, *expression[1:])
 
 
 class Right(Projection):
-    def __call__(self, *expression):
+    def __call__(self, stack, *expression):
         super().__call__(*expression)
-        return Expression(self.children[0], *expression[:-1])
+        return Expression(self.children[0], stack, *expression[:-1])
 
 
 class Composition(Function):
@@ -154,9 +162,10 @@ class Composition(Function):
             raise ArityException()
         super().__init__(children[1].arity, max([f.depth for f in children]), *children)
 
-    def __call__(self, *expression):
+    def __call__(self, stack, *expression):
         super().__call__(*expression)
-        return Expression(self.children[0], *[Expression(child, *expression) for child in self.children[1:]])
+        return Expression(self.children[0], stack,
+                          *[Expression(child, stack, *expression) for child in self.children[1:]])
 
     @classmethod
     def build(cls, program):
@@ -170,15 +179,17 @@ class Recursion(Function):
         if zero.arity + 1 != recursive.arity - 1:
             raise ArityException()
 
-    def __call__(self, *expression):
+    def __call__(self, stack, *expression):
         super().__call__(*expression)
         if expression[0].closed:
             if expression[0].result:
-                return Expression(self.children[1], expression[0].predecessor(),
-                                  Expression(self, expression[0].predecessor(), *expression[1:]), *expression[1:])
+                return Expression(self.children[1], stack, expression[0].predecessor(),
+                                  Expression(self, stack, expression[0].predecessor(), *expression[1:]),
+                                  *expression[1:])
             else:
-                return Expression(self.children[0], *expression[1:])
-        return Expression(self, expression[0].result, *expression[1:])
+                return Expression(self.children[0], stack, *expression[1:])
+        stack.append(expression[0])
+        return Expression(self, stack, *expression)
 
     @classmethod
     def build(cls, program):
@@ -186,8 +197,9 @@ class Recursion(Function):
 
 
 def main():
-    interpreter = Interpreter(Z=Zero, I=Identity, S=Successor, **{'<': Left, '>': Right}, o=Composition, R=Recursion)
-    step, result = interpreter.compile("RZRS<>oSS").execute(2, display=range(9999))
+    language = {'Z': Zero, 'I': Identity, 'S': Successor, '<': Left, '>': Right, 'o': Composition, 'R': Recursion}
+    interpreter = Interpreter(**language)
+    step, result = interpreter.compile("RZRS<>oSS").execute(200, step=10, display=range(99))
     print(step, result)
 
 
