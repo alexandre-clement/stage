@@ -199,7 +199,7 @@ class Recursion(Function):
 def main():
     language = {'Z': Zero, 'I': Identity, 'S': Successor, '<': Left, '>': Right, 'o': Composition, 'R': Recursion}
     interpreter = Interpreter(**language)
-    step, result = interpreter.compile("RZRS<>oSS").execute(200, step=10, display=range(99))
+    step, result = interpreter.compile("RZRS<>oSS").execute(200, step=-1, display=range(99))
     print(step, result)
 
 
