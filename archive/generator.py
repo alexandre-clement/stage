@@ -1,8 +1,7 @@
-from math import sqrt, log
-
-from abstract_syntax_tree import Zero, Identity, Successor, Left, Right, Composition, Recursion, Tree
-
 import sys
+from math import log
+
+from archive.abstract_syntax_tree import Zero, Identity, Successor, Left, Right, Composition, Recursion, Tree
 sys.setrecursionlimit(10000)
 
 
@@ -173,7 +172,6 @@ def fibonacci(n):
 
 
 def main():
-    from math import factorial
     result = [fibonacci(x) for x in range(10)]
     generator = Generator()
     hashfunction = HashFunction()

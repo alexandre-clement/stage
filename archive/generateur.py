@@ -1,7 +1,8 @@
 from itertools import product
 from time import time
 
-from abstract_syntax_tree import Zero, Identity, Successor, Left, Right, Composition, Recursion, Tree, display_tree
+from archive.abstract_syntax_tree import Zero, Identity, Successor, Left, Right, Composition, Recursion, Tree, \
+    display_tree
 
 atom = {(0, 1): [[Zero]], (1, 1): [[Identity], [Successor]]}
 

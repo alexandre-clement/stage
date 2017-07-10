@@ -2,7 +2,6 @@ from itertools import product
 from math import factorial
 from time import time
 
-from generator import fibonacci
 from tree_format import format_tree
 
 

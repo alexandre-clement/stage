@@ -1,7 +1,8 @@
 import argparse
 
-from abstract_syntax_tree import parse, Tree, display_tree, display_result
 from generator import HashFunction, Generator, generate
+
+from archive.abstract_syntax_tree import parse, Tree, display_tree, display_result
 
 
 class Commandline(argparse.ArgumentParser):

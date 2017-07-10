@@ -1,4 +1,4 @@
-from tree_format import format_tree
+from archive.tree_format import format_tree
 
 
 class ArityException(Exception):
@@ -24,7 +24,7 @@ class Interpreter:
         program = Interpreter.next_function(instructions)
         if len(list(instructions)):
             raise InvalidProgram()
-        return Executable(program)
+        return program
 
     @staticmethod
     def next_function(instructions):
@@ -41,45 +41,12 @@ class Printer:
     def __init__(self, language):
         self.language = language
 
-    def print(self, executable):
-        return self._print(executable.program)
+    def print(self, program):
+        return f"{self.language[program.__class__]}{''.join(map(lambda child: self.print(child), program.children))}"
 
-    def _print(self, program):
-        return f"{self.language[program.__class__]}{''.join(map(lambda child: self._print(child), program.children))}"
-
-    def tree(self, executable):
-        return self._tree(executable.program)
-
-    def _tree(self, program):
+    def tree(self, program):
         return format_tree(program, format_node=lambda node: self.language[node.__class__],
                            get_children=lambda node: node.children)
-
-
-class Executable:
-    def __init__(self, program):
-        self.program = program
-
-    def execute(self, *params, step=-1, display=(), bin_output=False):
-        step_counter = 0
-        peek = 0
-        stack = list()
-        stack.append(self.program(stack, *[Expression(arg) for arg in params]))
-        if step_counter in display:
-            print(step_counter, f"{self.program}({', '.join(map(str, params))})")
-        while stack and (step == -1 or step > step_counter):
-            if bin_output and isinstance(stack[0].what, Successor):
-                return step_counter, True
-            step_counter += 1
-            peek = stack[-1]
-            if step_counter in display:
-                print(step_counter, stack)
-            if peek.closed:
-                stack.pop()
-            else:
-                peek()
-        if bin_output:
-            return step_counter, False
-        return step_counter, peek
 
 
 class Expression:
@@ -120,6 +87,28 @@ class Function:
 
     def __repr__(self):
         return f"{self.__class__.__name__[0]}({', '.join(map(repr, self.children))})"
+
+    def execute(self, *params, step=-1, display=(), bin_output=False):
+        step_counter = 0
+        peek = 0
+        stack = list()
+        stack.append(self(stack, *[Expression(arg) for arg in params]))
+        if step_counter in display:
+            print(step_counter, f"{self}({', '.join(map(str, params))})")
+        while stack and (step == -1 or step > step_counter):
+            if bin_output and isinstance(stack[0].what, Successor):
+                return step_counter, True
+            step_counter += 1
+            peek = stack[-1]
+            if step_counter in display:
+                print(step_counter, stack)
+            if peek.closed:
+                stack.pop()
+            else:
+                peek()
+        if bin_output:
+            return step_counter, peek.what > 0
+        return step_counter, peek.what
 
     @classmethod
     def build(cls, program):
@@ -217,12 +206,13 @@ class Recursion(Function):
 
 def main():
     interpreter = Interpreter(Z=Zero, I=Identity, S=Successor, **{'<': Left, '>': Right}, o=Composition, R=Recursion)
-    executable = interpreter.compile('RZRS<>oSS')
-    step, result = executable.execute(1, display=range(0), bin_output=True)
+    executable = interpreter.compile('oRZ>IRZRI<RS>>I')
+    for i in range(40):
+        step, result = executable.execute(i, display=range(0), bin_output=False)
+        print(step, result)
     language = {Zero: 'Z', Identity: 'I', Successor: 'S', Left: '<', Right: '>', Composition: 'o', Recursion: 'R'}
     printer = Printer(language)
     print(printer.tree(executable))
-    print(step, result)
 
 
 if __name__ == '__main__':

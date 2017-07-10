@@ -1,5 +1,5 @@
 
-from tree_format import format_tree
+from archive.tree_format import format_tree
 
 
 class Function(object):

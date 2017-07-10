@@ -1,7 +1,7 @@
 from itertools import product
 from math import factorial
 
-from stack import *
+from execution import *
 
 
 def printer(language, program):
@@ -37,7 +37,6 @@ class CompositionGenerator(Generation):
     def _compound(self, n, size):
         for composition in self._composition(n, size):
             for prod in product(*[ZISRLoR(self.arity, l) for l in composition]):
-                print(prod)
                 yield prod
 
     def _composition(self, n, size):
@@ -86,6 +85,11 @@ class ZISoR(ZSoR):
         return len(tuple(iter(self)))
 
 
+class ProgramGenerator(ZISoR):
+    def __len__(self):
+        return len(list(iter(self)))
+
+
 class ZISRoR(ZISoR):
     def RLoR(self):
         yield from RightGenerator(self.arity, self.size)
@@ -98,20 +102,13 @@ class ZISRLoR(ZISRoR):
         yield from super().RLoR()
 
 
-def check(language, program, lst):
-    for i in range(len(lst)):
-        if Program(program).execute(i)[1].what != lst[i]:
-            return
-    print(printer(language, program))
-
-
 def main():
     language = {Zero: 'Z', Identity: 'I', Successor: 'S', Left: '<', Right: '>', Composition: 'o', Recursion: 'R'}
     result = [factorial(x) for x in range(10)]
     for i in range(15):
         print(i)
-        for program in ZISoR(1, i):
-            check(language, program, result)
+        for program in ProgramGenerator(1, i):
+            print(program)
 
 
 if __name__ == '__main__':
