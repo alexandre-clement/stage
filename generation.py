@@ -30,14 +30,18 @@ class CompositionGenerator(Generation):
     def __iter__(self):
         for size in range(1, self.size - 1):
             for arity in range(1, size + 1):
-                for main_program in ZSoR(arity, size):
+                for main_program in ZoR(arity, size):
                     for compound_program in self._compound(arity, self.size - 1 - size):
                         yield Composition(main_program, *compound_program)
 
     def _compound(self, n, size):
         for composition in self._composition(n, size):
-            for prod in product(*[ZISRLoR(self.arity, l) for l in composition]):
-                yield prod
+            if composition == (1,):
+                for prod in product(*[ZSoR(self.arity, l) for l in composition]):
+                    yield prod
+            else:
+                for prod in product(*[ZISRLoR(self.arity, l) for l in composition]):
+                    yield prod
 
     def _composition(self, n, size):
         min_length = 1 if self.arity == 0 else self.arity
@@ -52,12 +56,16 @@ class CompositionGenerator(Generation):
 class RecursionGenerator(Generation):
     def __iter__(self):
         for size in range(1, self.size - 1):
-            for zero in ZISRLoR(self.arity - 1, size):
-                for recursive in ZISRLoR(self.arity + 1, self.size - 1 - size):
+            for recursive in ZISRLoR(self.arity + 1, self.size - 1 - size):
+                if isinstance(recursive, Left) and isinstance(recursive.children[0], Identity):
+                    continue
+                if isinstance(recursive, Right) and isinstance(recursive.children[0], Successor):
+                    continue
+                for zero in ZISRLoR(self.arity - 1, size):
                     yield Recursion(zero, recursive)
 
 
-class ZSoR(Generation):
+class ZoR(Generation):
     def __iter__(self):
         if self.size == 1:
             if self.arity == 0:
@@ -70,10 +78,16 @@ class ZSoR(Generation):
                 yield from self.RLoR()
 
     def IS(self):
-        yield Successor()
+        if False:
+            yield
 
     def RLoR(self):
         yield from RecursionGenerator(self.arity, self.size)
+
+
+class ZSoR(ZoR):
+    def IS(self):
+        yield Successor()
 
 
 class ZISoR(ZSoR):
@@ -104,11 +118,10 @@ class ZISRLoR(ZISRoR):
 
 def main():
     language = {Zero: 'Z', Identity: 'I', Successor: 'S', Left: '<', Right: '>', Composition: 'o', Recursion: 'R'}
+    printer = Printer(language)
     result = [factorial(x) for x in range(10)]
     for i in range(15):
-        print(i)
-        for program in ProgramGenerator(1, i):
-            print(program)
+        print(i, len(ProgramGenerator(1, i)))
 
 
 if __name__ == '__main__':

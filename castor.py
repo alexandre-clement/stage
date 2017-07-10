@@ -13,12 +13,9 @@ def castor(cls, length):
                     if j > maxi:
                         maxi = j
                         result = [program]
-                        break
                     elif j == maxi:
                         result.append(program)
-                        break
-                    else:
-                        break
+                    break
         print("classe ", i, ":", maxi, f"\t[{', '.join(map(printer.print, result))}]")
 
 
