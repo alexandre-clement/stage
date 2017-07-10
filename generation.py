@@ -22,8 +22,9 @@ class LeftGenerator(Generation):
 
 class RightGenerator(Generation):
     def __iter__(self):
-        for g in ZISRoR(self.arity - 1, self.size - 1):
-            yield Right(g)
+        if self.arity - 1:
+            for g in ZISRoR(self.arity - 1, self.size - 1):
+                yield Right(g)
 
 
 class CompositionGenerator(Generation):
@@ -37,7 +38,7 @@ class CompositionGenerator(Generation):
     def _compound(self, n, size):
         for composition in self._composition(n, size):
             if composition == (1,):
-                for prod in product(*[ZSoR(self.arity, l) for l in composition]):
+                for prod in product(*[ZoR(self.arity, l) for l in composition]):
                     yield prod
             else:
                 for prod in product(*[ZISRLoR(self.arity, l) for l in composition]):
@@ -51,6 +52,17 @@ class CompositionGenerator(Generation):
             for length in range(min_length, size - (n - 1) * min_length + 1):
                 for recursive_composition in self._composition(n - 1, size - length):
                     yield (length,) + recursive_composition
+
+
+class MainCompositionGenerator(CompositionGenerator):
+    def _compound(self, n, size):
+        for composition in self._composition(n, size):
+            if composition == (1,):
+                for prod in product(*[ZoR(self.arity, l) for l in composition]):
+                    yield prod
+            else:
+                for prod in product(*[ZoR(self.arity, l) for l in composition]):
+                    yield prod
 
 
 class RecursionGenerator(Generation):
@@ -100,6 +112,17 @@ class ZISoR(ZSoR):
 
 
 class ProgramGenerator(ZISoR):
+    def __iter__(self):
+        if self.size == 1:
+            if self.arity == 0:
+                yield Zero()
+            elif self.arity == 1:
+                yield from self.IS()
+        elif self.size >= 2:
+            yield from MainCompositionGenerator(self.arity, self.size)
+            if self.arity:
+                yield from self.RLoR()
+
     def __len__(self):
         return len(list(iter(self)))
 
@@ -120,7 +143,7 @@ def main():
     language = {Zero: 'Z', Identity: 'I', Successor: 'S', Left: '<', Right: '>', Composition: 'o', Recursion: 'R'}
     printer = Printer(language)
     result = [factorial(x) for x in range(10)]
-    for i in range(15):
+    for i in range(21):
         print(i, len(ProgramGenerator(1, i)))
 
 

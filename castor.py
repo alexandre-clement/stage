@@ -20,7 +20,7 @@ def castor(cls, length):
 
 
 def main():
-    castor(range(20), 100)
+    castor(range(20), 20)
 
 
 if __name__ == '__main__':
