@@ -126,9 +126,9 @@ class Function:
 
     def execute(self, *params, step=-1, display=(), bin_output=False):
         step_counter = 0
-        peek = 0
+        peek = None
         stack = list()
-        stack.append(self(stack, *[Expression(arg) for arg in params]))
+        stack.insert(0, self(stack, *[Expression(arg) for arg in params]))
         if step_counter in display:
             print(step_counter, f"{self}({', '.join(map(str, params))})")
         while stack and (step == -1 or step > step_counter):
@@ -138,7 +138,6 @@ class Function:
             peek = stack[-1]
             if step_counter in display:
                 print(step_counter, stack)
-            print(peek)
             if peek.closed:
                 stack.pop()
             else:
@@ -297,7 +296,7 @@ class Mul(Function):
     def __call__(self, stack, *expression):
         if len(expression) == self.arity:
             zero_result = Expression(self.children[0], False, stack, expression[1])
-            stack.append(stack.append(zero_result))
+            stack.append(zero_result)
             return Expression(self, False, stack, *expression, zero_result)
         elif len(expression) == self.arity + 1:
             result = expression[self.arity]
@@ -329,10 +328,11 @@ class Sous(Function):
 
 class Predecessor(Function):
     def __init__(self, *children):
-        super().__init__(1, 1)
+        super().__init__(1, 1, *children)
 
     def __call__(self, stack, *expression):
         super().__call__(*expression)
+
         if expression[0].closed:
             if expression[0].what:
                 return Expression(expression[0].what - 1)
@@ -383,7 +383,7 @@ class Printer:
 
 table = list()
 table.append((Recursion(Identity(), Left(Right(Successor()))), Add))
-table.append((Recursion(Zero(), Right(Identity())), Predecessor))
+table.append((Recursion(Zero(), Right(Function(1))), Predecessor))
 table.append((Recursion(Function(1), Left(Add())), Mul))
 table.append((Recursion(Identity(), Left(Right(Predecessor()))), Sous))
 
