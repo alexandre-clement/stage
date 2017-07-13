@@ -1,4 +1,66 @@
+from math import log
+from time import time
+
 from archive.tree_format import format_tree
+
+
+def newton(n):
+    x = n
+    y = (x + 1) // 2
+    while y < x:
+        x = y
+        y = (x + n // x) // 2
+    return x
+
+
+def cantor(value):
+    n = newton(2 * value)
+    if n * (n + 1) // 2 > value:
+        n -= 1
+    p = n * (n + 1) // 2
+    x = value - p
+    return x, n - x
+
+
+def cantor_inverse(x, y):
+    return ((x + y) * (x + y) + 3 * x + y) // 2
+
+
+def cantor_n(value, n):
+    if n == 1:
+        return value,
+    if n == 2:
+        return cantor(value)
+    mid = n // 2
+    i, j = cantor(value)
+    return cantor_n(i, mid) + cantor_n(j, n - mid)
+
+
+def cantor_inverse_n(*args):
+    n = len(args)
+    if n == 1:
+        return args[0]
+    if n == 2:
+        return cantor_inverse(*args)
+    mid = n // 2
+    return cantor_inverse(cantor_inverse_n(*args[:mid]), cantor_inverse_n(*args[mid:]))
+
+
+def pairing_exp2(n):
+    if not n:
+        return 0, 0
+    x = n
+    while not x & 1:
+        x = x // 2
+    v = (x + 1) // 2
+    y = n // x
+    return int(log(y, 2)), v
+
+
+def pairing_exp2_inverse(u, v):
+    if not u and not v:
+        return 0
+    return 2 ** u * (2 * v - 1)
 
 
 class ArityException(Exception):
@@ -13,40 +75,6 @@ class ArityException(Exception):
 
 class InvalidProgram(Exception):
     pass
-
-
-class Interpreter:
-    def __init__(self, **language):
-        self.language = language
-
-    def compile(self, code):
-        instructions = self.parse(code)
-        program = Interpreter.next_function(instructions)
-        if len(list(instructions)):
-            raise InvalidProgram()
-        return program
-
-    @staticmethod
-    def next_function(instructions):
-        try:
-            return next(instructions).build(instructions)
-        except StopIteration:
-            raise InvalidProgram()
-
-    def parse(self, code):
-        return (self.language[char] for char in code if char in self.language)
-
-
-class Printer:
-    def __init__(self, language):
-        self.language = language
-
-    def print(self, program):
-        return f"{self.language[program.__class__]}{''.join(map(lambda child: self.print(child), program.children))}"
-
-    def tree(self, program):
-        return format_tree(program, format_node=lambda node: self.language[node.__class__],
-                           get_children=lambda node: node.children)
 
 
 class Expression:
@@ -73,6 +101,14 @@ class Expression:
 
 
 class Function:
+    def __new__(cls, *children):
+        instance = super().__new__(cls)
+        instance.__init__(*children)
+        for p, inst in table:
+            if instance == p and instance.__class__ != Function:
+                return inst(*children)
+        return instance
+
     def __init__(self, arity=0, depth=0, *children):
         self.arity = arity
         self.depth = depth
@@ -86,7 +122,7 @@ class Function:
         return self.__class__.__name__
 
     def __repr__(self):
-        return f"{self.__class__.__name__[0]}({', '.join(map(repr, self.children))})"
+        return f"{self.__class__.__name__}({', '.join(map(repr, self.children))})"
 
     def execute(self, *params, step=-1, display=(), bin_output=False):
         step_counter = 0
@@ -102,6 +138,7 @@ class Function:
             peek = stack[-1]
             if step_counter in display:
                 print(step_counter, stack)
+            print(peek)
             if peek.closed:
                 stack.pop()
             else:
@@ -114,11 +151,29 @@ class Function:
     def build(cls, program):
         return cls()
 
+    def __contains__(self, item):
+        if any(child == item for child in self.children):
+            return True
+        return any(item in child for child in self.children)
+
+    def __eq__(self, other):
+        if other.__class__ == Function:
+            return self.arity == other.arity
+        if self.__class__ == other.__class__:
+            return all(self_child == other_child for self_child, other_child in zip(self.children, other.children))
+        return False
+
+    def __hash__(self):
+        return 0
+
 
 class Zero(Function):
     def __call__(self, stack, *expression):
         super().__call__(*expression)
         return Expression(0)
+
+    def __hash__(self):
+        return 1
 
 
 class Identity(Function):
@@ -129,6 +184,9 @@ class Identity(Function):
         super().__call__(*expression)
         return expression[0]
 
+    def __hash__(self):
+        return 2
+
 
 class Successor(Function):
     def __init__(self):
@@ -137,10 +195,12 @@ class Successor(Function):
     def __call__(self, stack, *expression):
         super().__call__(*expression)
         if expression[0].closed:
-            expression[0].what += 1
-            return expression[0]
+            return Expression(expression[0].what + 1)
         stack.append(expression[0])
         return Expression(self, False, stack, *expression)
+
+    def __hash__(self):
+        return 3
 
 
 class Projection(Function):
@@ -157,11 +217,17 @@ class Left(Projection):
         super().__call__(*expression)
         return Expression(self.children[0], False, stack, *expression[1:])
 
+    def __hash__(self):
+        return 4 * hash(self.children[0])
+
 
 class Right(Projection):
     def __call__(self, stack, *expression):
         super().__call__(*expression)
         return Expression(self.children[0], False, stack, *expression[:-1])
+
+    def __hash__(self):
+        return 5 * hash(self.children[0])
 
 
 class Composition(Function):
@@ -180,6 +246,9 @@ class Composition(Function):
         main_child = next(program).build(program)
         return cls(main_child, *[Interpreter.next_function(program) for _ in range(main_child.arity)])
 
+    def __hash__(self):
+        return 6 * cantor_inverse_n(*map(hash, self.children))
+
 
 class Recursion(Function):
     def __init__(self, zero: Function, recursive: Function):
@@ -191,9 +260,9 @@ class Recursion(Function):
         super().__call__(*expression)
         if expression[0].closed:
             if expression[0].what:
-                expression[0].what -= 1
-                return Expression(self.children[1], False, stack, Expression(expression[0].what),
-                                  Expression(self, False, stack, expression[0], *expression[1:]), *expression[1:])
+                return Expression(self.children[1], False, stack, Expression(expression[0].what - 1),
+                                  Expression(self, False, stack, Expression(expression[0].what - 1), *expression[1:]),
+                                  *expression[1:])
             else:
                 return Expression(self.children[0], False, stack, *expression[1:])
         stack.append(expression[0])
@@ -203,16 +272,139 @@ class Recursion(Function):
     def build(cls, program):
         return cls(Interpreter.next_function(program), Interpreter.next_function(program))
 
+    def __hash__(self):
+        return 7 * cantor_inverse(hash(self.children[0]), hash(self.children[1]))
+
+
+class Add(Function):
+    def __init__(self, *children):
+        super().__init__(2, 1)
+
+    def __call__(self, stack, *expression):
+        super().__call__(*expression)
+        if expression[0].closed and expression[1].closed:
+            return Expression(expression[0].what + expression[1].what)
+        for e in expression:
+            if not e.closed:
+                stack.append(e)
+        return Expression(self, False, stack, *expression)
+
+
+class Mul(Function):
+    def __init__(self, *children):
+        super().__init__(2, 2, *children)
+
+    def __call__(self, stack, *expression):
+        if len(expression) == self.arity:
+            zero_result = Expression(self.children[0], False, stack, expression[1])
+            stack.append(stack.append(zero_result))
+            return Expression(self, False, stack, *expression, zero_result)
+        elif len(expression) == self.arity + 1:
+            result = expression[self.arity]
+            if expression[0].closed and expression[1].closed and result.closed:
+                return Expression(result.what + expression[0].what * expression[1].what)
+            for e in expression:
+                if not e.closed:
+                    stack.append(e)
+            return Expression(self, False, stack, *expression)
+        super().__call__(*expression)
+
+
+class Sous(Function):
+    def __init__(self, *children):
+        super().__init__(2, 2)
+
+    def __call__(self, stack, *expression):
+        super().__call__(*expression)
+        if expression[0].closed and expression[1].closed:
+            result = expression[0].what - expression[1].what
+            if result >= 0:
+                return Expression(expression[0].what - expression[1].what)
+            return Expression(0)
+        for e in expression:
+            if not e.closed:
+                stack.append(e)
+        return Expression(self, False, stack, *expression)
+
+
+class Predecessor(Function):
+    def __init__(self, *children):
+        super().__init__(1, 1)
+
+    def __call__(self, stack, *expression):
+        super().__call__(*expression)
+        if expression[0].closed:
+            if expression[0].what:
+                return Expression(expression[0].what - 1)
+            return Expression(0)
+        stack.append(expression[0])
+        return Expression(self, False, stack, *expression)
+
+
+class Interpreter:
+    default = {'F': Function, 'Z': Zero, 'I': Identity, 'S': Successor, '<': Left, '>': Right, 'o': Composition,
+               'R': Recursion, 'A': Add, 'P': Predecessor, 'M': Mul, 'D': Sous}
+
+    def __init__(self, language=default):
+        self.language = language
+
+    def compile(self, code):
+        instructions = self.parse(code)
+        program = Interpreter.next_function(instructions)
+        if len(list(instructions)):
+            raise InvalidProgram()
+        return program
+
+    @staticmethod
+    def next_function(instructions):
+        try:
+            return next(instructions).build(instructions)
+        except StopIteration:
+            raise InvalidProgram()
+
+    def parse(self, code):
+        return (self.language[char] for char in code if char in self.language)
+
+
+class Printer:
+    default = {Function: 'F', Zero: 'Z', Identity: 'I', Successor: 'S', Left: '<', Right: '>', Composition: 'o',
+               Recursion: 'R', Add: 'A', Predecessor: 'P', Mul: 'M', Sous: 'D'}
+
+    def __init__(self, language=default):
+        self.language = language
+
+    def print(self, program):
+        return f"{self.language[program.__class__]}{''.join(map(lambda child: self.print(child), program.children))}"
+
+    def tree(self, program):
+        return format_tree(program, format_node=lambda node: self.language[node.__class__],
+                           get_children=lambda node: node.children)
+
+
+table = list()
+table.append((Recursion(Identity(), Left(Right(Successor()))), Add))
+table.append((Recursion(Zero(), Right(Identity())), Predecessor))
+table.append((Recursion(Function(1), Left(Add())), Mul))
+table.append((Recursion(Identity(), Left(Right(Predecessor()))), Sous))
+
 
 def main():
-    interpreter = Interpreter(Z=Zero, I=Identity, S=Successor, **{'<': Left, '>': Right}, o=Composition, R=Recursion)
-    executable = interpreter.compile('oRZ>IRZRI<RS>>I')
-    for i in range(40):
-        step, result = executable.execute(i, display=range(0), bin_output=False)
-        print(step, result)
-    language = {Zero: 'Z', Identity: 'I', Successor: 'S', Left: '<', Right: '>', Composition: 'o', Recursion: 'R'}
-    printer = Printer(language)
-    print(printer.tree(executable))
+    t0 = time()
+    executable = Interpreter().compile("""
+    R
+    ├── oSS
+    └── <
+        └── R
+            ├── I
+            └── <
+                └── >
+                    └── S""")
+    for i in range(10):
+        for j in range(10):
+            step, result = executable.execute(i, j, display=range(0), bin_output=False)
+            print(i, j, step, result)
+    # print(repr(executable))
+    print(time() - t0)
 
 
 if __name__ == '__main__':
