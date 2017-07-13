@@ -199,8 +199,9 @@ class Recursion(Function):
 def main():
     language = {'Z': Zero, 'I': Identity, 'S': Successor, '<': Left, '>': Right, 'o': Composition, 'R': Recursion}
     interpreter = Interpreter(**language)
-    step, result = interpreter.compile("RZ<RZ<oSoSoSoSS").execute(10, step=-1, display=range(99))
-    print(step, result)
+    for i in range(50):
+        step, result = interpreter.compile("RZRI<>I").execute(i, step=-1, display=range(0))
+        print(step, result)
 
 
 if __name__ == '__main__':

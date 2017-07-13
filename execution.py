@@ -402,17 +402,10 @@ table.append((Recursion(Identity(), Left(Right(Predecessor()))), Sous))
 def main():
     t0 = time()
     executable = Interpreter().compile("""
-o
-├── R
-│   ├── I
-│   └── <
-│       └── >
-│           └── S
-├── S
-└── I""")
-    for i in range(100):
-        for j in range(1):
-            step, result = executable.execute(i, display=range(0), bin_output=False)
+RI<>S""")
+    for i in range(10):
+        for j in range(10):
+            step, result = executable.execute(i, j, display=range(0), bin_output=False)
             print(i, j, step, result)
     # print(repr(executable))
     print(time() - t0)

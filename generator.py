@@ -76,6 +76,8 @@ class RecursionGenerator(Generation):
                             continue
                         if recursive == Left(Recursion(Zero(), Function(2))):
                             continue
+                        if recursive == Recursion(Left(Zero()), Left(Function(2))):
+                            continue
                         if recursive == Left(Successor()):
                             continue
                         if recursive == Right(Successor()):
@@ -94,6 +96,8 @@ class RecursionGenerator(Generation):
                             continue
                         if recursive == Recursion(Identity(), Right(Right(Successor()))):
                             continue
+                        if recursive == Recursion(Identity(), Left(Function(2))) and recursive.children[1].execute(0, 0, 0)[1] == 0:
+                                continue
                     if zero == Identity() and recursive == Left(Left(Identity())):
                         continue
                     if isinstance(zero, Right) and isinstance(recursive, Right):
@@ -172,10 +176,10 @@ class Main(NoProjection):
 
 
 def main():
-    for i in range(20):
+    for i in range(8, 9):
         print(i, len(Main(1, i)))
-        #for p in Main(1, i):
-            #print(Printer().tree(p))
+        for p in Main(1, i):
+            print(Printer().tree(p))
 
 
 if __name__ == '__main__':
