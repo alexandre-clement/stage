@@ -1,6 +1,6 @@
 from time import time
 
-from generation import *
+from generator import *
 
 
 def castor(cls, length):
@@ -12,7 +12,6 @@ def castor(cls, length):
         to_prove = []
         result = []
         for program in Main(1, i):
-            program = Interpreter().compile(Printer().print(program))
             for j in range(length):
                 try:
                     # print(printer.print(program))

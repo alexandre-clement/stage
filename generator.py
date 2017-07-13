@@ -29,10 +29,20 @@ class CompositionGenerator(Generation):
             for arity in range(1, size + 1):
                 for main_program in NoIdentityNorProjection(arity, size):
                     for compound_program in self._compound(arity, self.size - 1 - size):
-                        if main_program == Predecessor() and compound_program == (Successor(),):
+                        if main_program == Predecessor() and all(
+                                all(isinstance(child, Successor) or isinstance(child, Composition) for child in
+                                    compound) for compound in compound_program):
                             continue
                         if main_program == Successor() and compound_program == (Predecessor(),):
                             continue
+                        if main_program == Add() and Zero() in compound_program:
+                            continue
+                        if all(isinstance(child, Successor) or isinstance(child, Composition) for child in
+                               main_program):
+                            if all(all(isinstance(child, Successor) or isinstance(child, Composition) for child in
+                                       compound) for compound in compound_program):
+                                if isinstance(main_program, Composition):
+                                    continue
                         yield Composition(main_program, *compound_program)
 
     def _compound(self, n, size):
@@ -66,9 +76,29 @@ class RecursionGenerator(Generation):
                             continue
                         if recursive == Left(Recursion(Zero(), Function(2))):
                             continue
+                        if recursive == Left(Successor()):
+                            continue
+                        if recursive == Right(Successor()):
+                            continue
+                        if recursive == Right(Composition(Successor(), Successor())):
+                            continue
+                        if recursive == Left(Left(Composition(Successor(), Zero()))):
+                            continue
+                        if recursive == Recursion(Identity(), Left(Left(Successor()))):
+                            continue
+                        if recursive == Recursion(Successor(), Left(Left(Successor()))):
+                            continue
+                        if recursive == Recursion(Identity(), Left(Right(Identity()))):
+                            continue
+                        if recursive == Recursion(Successor(), Left(Right(Identity()))):
+                            continue
+                        if recursive == Recursion(Identity(), Right(Right(Successor()))):
+                            continue
+                    if zero == Identity() and recursive == Left(Left(Identity())):
+                        continue
                     if isinstance(zero, Right) and isinstance(recursive, Right):
                         continue
-                    if zero == Identity() and recursive == Left(Left(Identity())):
+                    if zero == Composition(Successor(), Zero()) and recursive == Left(Successor()):
                         continue
                     yield Recursion(zero, recursive)
 
@@ -142,8 +172,10 @@ class Main(NoProjection):
 
 
 def main():
-    for i in range(10):
+    for i in range(20):
         print(i, len(Main(1, i)))
+        #for p in Main(1, i):
+            #print(Printer().tree(p))
 
 
 if __name__ == '__main__':

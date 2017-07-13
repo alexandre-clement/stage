@@ -174,4 +174,5 @@ def display_result(tree, *args):
 
 
 if __name__ == '__main__':
-    Tree(parse("oRI<"))
+    for i in range(100):
+        print(Tree(parse("oRS<<SIS")).node(i))

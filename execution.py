@@ -78,7 +78,8 @@ class InvalidProgram(Exception):
 
 
 class Expression:
-    def __init__(self, what, closed=True, *params):
+    def __init__(self, what, closed=True, *params, tmp=()):
+        self.tmp = tmp
         self.what = what
         self.closed = closed
         self.params = params
@@ -86,10 +87,14 @@ class Expression:
     def __call__(self):
         if self.closed:
             return self
-        result = self.what(*self.params)
+        if self.tmp:
+            result = self.what(*self.params, tmp=self.tmp)
+        else:
+            result = self.what(*self.params)
         self.what = result.what
         self.closed = result.closed
         self.params = result.params
+        self.tmp = result.tmp
         return self
 
     def __str__(self):
@@ -149,6 +154,11 @@ class Function:
     @classmethod
     def build(cls, program):
         return cls()
+
+    def __iter__(self):
+        yield self
+        for child in self.children:
+            yield from child
 
     def __contains__(self, item):
         if any(child == item for child in self.children):
@@ -277,7 +287,7 @@ class Recursion(Function):
 
 class Add(Function):
     def __init__(self, *children):
-        super().__init__(2, 1)
+        super().__init__(2, 1, *children)
 
     def __call__(self, stack, *expression):
         super().__call__(*expression)
@@ -293,25 +303,24 @@ class Mul(Function):
     def __init__(self, *children):
         super().__init__(2, 2, *children)
 
-    def __call__(self, stack, *expression):
-        if len(expression) == self.arity:
-            zero_result = Expression(self.children[0], False, stack, expression[1])
-            stack.append(zero_result)
-            return Expression(self, False, stack, *expression, zero_result)
-        elif len(expression) == self.arity + 1:
-            result = expression[self.arity]
+    def __call__(self, stack, *expression, tmp=()):
+        super().__call__(*expression)
+        if tmp:
+            result = tmp[0]
             if expression[0].closed and expression[1].closed and result.closed:
                 return Expression(result.what + expression[0].what * expression[1].what)
             for e in expression:
                 if not e.closed:
                     stack.append(e)
-            return Expression(self, False, stack, *expression)
-        super().__call__(*expression)
+            return Expression(self, False, stack, *expression, tmp=tmp)
+        zero_result = Expression(self.children[0], False, stack, expression[1])
+        stack.append(zero_result)
+        return Expression(self, False, stack, *expression, tmp=(zero_result,))
 
 
 class Sous(Function):
     def __init__(self, *children):
-        super().__init__(2, 2)
+        super().__init__(2, 2, *children)
 
     def __call__(self, stack, *expression):
         super().__call__(*expression)
@@ -330,15 +339,17 @@ class Predecessor(Function):
     def __init__(self, *children):
         super().__init__(1, 1, *children)
 
-    def __call__(self, stack, *expression):
+    def __call__(self, stack, *expression, tmp=()):
         super().__call__(*expression)
-
-        if expression[0].closed:
-            if expression[0].what:
-                return Expression(expression[0].what - 1)
-            return Expression(0)
-        stack.append(expression[0])
-        return Expression(self, False, stack, *expression)
+        if tmp:
+            if tmp[0].closed:
+                if tmp[0].what:
+                    return Expression(tmp[0].what - 1)
+                return Expression(0)
+            return Expression(self, False, stack, *expression, tmp=tmp)
+        result = Expression(self.children[1].children[0], False, stack, *expression)
+        stack.append(result)
+        return Expression(self, False, stack, *expression, tmp=(result,))
 
 
 class Interpreter:
@@ -368,7 +379,7 @@ class Interpreter:
 
 class Printer:
     default = {Function: 'F', Zero: 'Z', Identity: 'I', Successor: 'S', Left: '<', Right: '>', Composition: 'o',
-               Recursion: 'R', Add: 'A', Predecessor: 'P', Mul: 'M', Sous: 'D'}
+               Recursion: 'R', Add: 'R', Predecessor: 'R', Mul: 'R', Sous: 'R'}
 
     def __init__(self, language=default):
         self.language = language
@@ -391,17 +402,17 @@ table.append((Recursion(Identity(), Left(Right(Predecessor()))), Sous))
 def main():
     t0 = time()
     executable = Interpreter().compile("""
-    R
-    ├── oSS
-    └── <
-        └── R
-            ├── I
-            └── <
-                └── >
-                    └── S""")
-    for i in range(10):
-        for j in range(10):
-            step, result = executable.execute(i, j, display=range(0), bin_output=False)
+o
+├── R
+│   ├── I
+│   └── <
+│       └── >
+│           └── S
+├── S
+└── I""")
+    for i in range(100):
+        for j in range(1):
+            step, result = executable.execute(i, display=range(0), bin_output=False)
             print(i, j, step, result)
     # print(repr(executable))
     print(time() - t0)
