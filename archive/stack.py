@@ -200,7 +200,7 @@ def main():
     language = {'Z': Zero, 'I': Identity, 'S': Successor, '<': Left, '>': Right, 'o': Composition, 'R': Recursion}
     interpreter = Interpreter(**language)
     for i in range(50):
-        step, result = interpreter.compile("RZRI<>I").execute(i, step=-1, display=range(0))
+        step, result = interpreter.compile("RZRI<RI<RI<<S").execute(i, step=-1, display=range(0))
         print(step, result)
 
 

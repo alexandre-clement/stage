@@ -1,5 +1,4 @@
 from itertools import product
-from math import factorial
 
 from execution import *
 
@@ -29,13 +28,11 @@ class CompositionGenerator(Generation):
             for arity in range(1, size + 1):
                 for main_program in NoIdentityNorProjection(arity, size):
                     for compound_program in self._compound(arity, self.size - 1 - size):
-                        if main_program == Predecessor() and all(
+                        if main_program == Recursion(Zero(), Right(Identity())) and all(
                                 all(isinstance(child, Successor) or isinstance(child, Composition) for child in
                                     compound) for compound in compound_program):
                             continue
-                        if main_program == Successor() and compound_program == (Predecessor(),):
-                            continue
-                        if main_program == Add() and Zero() in compound_program:
+                        if main_program == Recursion(Identity(), Left(Right(Successor()))) and Zero() in compound_program:
                             continue
                         if all(isinstance(child, Successor) or isinstance(child, Composition) for child in
                                main_program):
@@ -84,8 +81,6 @@ class RecursionGenerator(Generation):
                             continue
                         if recursive == Right(Composition(Successor(), Successor())):
                             continue
-                        if recursive == Left(Left(Composition(Successor(), Zero()))):
-                            continue
                         if recursive == Recursion(Identity(), Left(Left(Successor()))):
                             continue
                         if recursive == Recursion(Successor(), Left(Left(Successor()))):
@@ -96,8 +91,6 @@ class RecursionGenerator(Generation):
                             continue
                         if recursive == Recursion(Identity(), Right(Right(Successor()))):
                             continue
-                        if recursive == Recursion(Identity(), Left(Function(2))) and recursive.children[1].execute(0, 0, 0)[1] == 0:
-                                continue
                     if zero == Identity() and recursive == Left(Left(Identity())):
                         continue
                     if isinstance(zero, Right) and isinstance(recursive, Right):
@@ -176,10 +169,8 @@ class Main(NoProjection):
 
 
 def main():
-    for i in range(8, 9):
+    for i in range(20):
         print(i, len(Main(1, i)))
-        for p in Main(1, i):
-            print(Printer().tree(p))
 
 
 if __name__ == '__main__':

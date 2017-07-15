@@ -37,9 +37,8 @@ def castor(cls, length):
         print(sorted(timing, key=lambda x: x[0], reverse=True))
 
 
-
 def main():
-    castor(range(15), 8)
+    castor(range(20), 8)
 
 
 if __name__ == '__main__':
